@@ -52,8 +52,12 @@ def sync_user(user):
 def welcome_dashboard(message):
     sync_user(message.from_user)
     if not is_authorized(message.from_user.id): return
- codex = '<a href="https://t.me/Dxcodexbot">Ｄｘ－Ｓｉｍｕ</a>'  
+ # URL er text tuku ekdom clean rakha bhalo ba styled thakleo double quotes check koro
+    codex = '<a href="https://t.me/Dxcodexbot">Ｄｘ－Ｓｉｍｕ</a>'  
+    
     role = "👑 ᴏᴡɴᴇʀ" if is_owner(message.from_user.id) else "⚡ ꜱᴜᴅᴏ"
+    
+    # Dashboard message structure
     msg = (
         f"<b>┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n"
         f"┣ 👤 ɴᴀᴍᴇ: {message.from_user.first_name}\n"
@@ -61,7 +65,9 @@ def welcome_dashboard(message):
         f"┣ 🛡️ ʀᴏʟᴇ: {role}\n"
         f"┗━➾ 👨‍💻 ᴅᴇᴠ: {codex}</b>"
     )
-    bot.reply_to(message, msg)
+    
+    # URL link jate thikmoto kaj kore tai disable_web_page_preview=True dewa bhalo
+    bot.reply_to(message, msg, disable_web_page_preview=True)
 
 @bot.message_handler(commands=['sudo'])
 def handle_sudo(message):
