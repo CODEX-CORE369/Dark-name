@@ -52,14 +52,14 @@ def sync_user(user):
 def welcome_dashboard(message):
     sync_user(message.from_user)
     if not is_authorized(message.from_user.id): return
-    
+ codex = '<a href="https://t.me/Dxcodexbot">Ｄｘ－Ｓｉｍｕ</a>'  
     role = "👑 ᴏᴡɴᴇʀ" if is_owner(message.from_user.id) else "⚡ ꜱᴜᴅᴏ"
     msg = (
         f"<b>┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n"
         f"┣ 👤 ɴᴀᴍᴇ: {message.from_user.first_name}\n"
         f"┣ 🆔 ɪᴅ: <code>{message.from_user.id}</code>\n"
         f"┣ 🛡️ ʀᴏʟᴇ: {role}\n"
-        f"┗━➾ 👨‍💻 ᴅᴇᴠ: DX-CODEX</b>"
+        f"┗━➾ 👨‍💻 ᴅᴇᴠ: {codex}</b>"
     )
     bot.reply_to(message, msg)
 
