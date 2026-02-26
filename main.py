@@ -159,4 +159,9 @@ def copy_callback(call):
 
 if __name__ == "__main__":
     print(">> NIKO is Online. System Secured by DX-CODEX.")
-    bot.infinity_polling()
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(5)
