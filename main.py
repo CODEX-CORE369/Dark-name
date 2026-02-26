@@ -1,11 +1,18 @@
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
-import time
+from pymongo import MongoClient
 
 BOT_TOKEN = "8773837287:AAFZDqWyq1kac9tSAGehIDxSSDzLECU0fHg"
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
 
-OWNER_ID = [6703335929, 5136260272, 6757495567, 5838295041]
+# MongoDB Setup
+MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
+client = MongoClient(MONGO_URI)
+db = client["DARK-NAMEX"]
+sudo_db = db["sudo_users"]
+
+OWNER_ID = [6703335929, 5136260272, 6737589257, 7819700191]
 
 CHAR_MAP = {
     'a': 'ａ', 'b': 'ｂ', 'c': 'ｃ', 'd': 'ｄ', 'e': 'ｅ', 'f': 'ｆ', 'g': 'ｇ', 'h': 'ｈ', 'i': 'ｉ', 
@@ -19,85 +26,94 @@ CHAR_MAP = {
     ':': '：', '"': '＂', "'": '＇', '!': '！', '@': '＠', '#': '＃', '.': '．', ' ': '－'
 }
 
+# Database Helpers
+def get_sudo_list():
+    return [user["_id"] for user in sudo_db.find()]
+
 def is_owner(uid):
     return uid in OWNER_ID
 
-def advanced_styler(text):
-    clean_text = re.sub(r'[_.]', ' ', text).strip()
-    words = re.split(r'[- ]+', clean_text)
-    normalized = "-".join([w.capitalize() for w in words if w])
-    
-    styled = "".join([CHAR_MAP.get(c, c) for c in normalized])
-    
-    return f"「𖣂」{styled}ايڪـͬــͤــᷜــͨــͣــͪـي"
+def is_authorized(uid):
+    return is_owner(uid) or uid in get_sudo_list()
 
 @bot.message_handler(commands=['start'])
 def welcome_dashboard(message):
-    if not is_owner(message.from_user.id): return
-    
+    if not is_authorized(message.from_user.id): return
     bot.send_chat_action(message.chat.id, 'typing')
+    
+    role = "👑 ᴏᴡɴᴇʀ" if is_owner(message.from_user.id) else "⚡ ꜱᴜᴅᴏ"
+    
     msg = (
-        f"<b>┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n"
-        f"┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n"
-        f"┃ ┃ 👤 ɴᴀᴍᴇ: .𖥔 ݁ ˖⋆ ˚❆ <b>{message.from_user.first_name}</b>\n"
-        f"┃ ┃ 🆔 ɪᴅ: <code>{message.from_user.id}</code>\n"
-        f"┃ ┗───────────╼\n"
-        f"┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n"
-        f"┃ ┃ ✅ ᴀɪ ᴘᴏᴡᴇʀᴇᴅ ꜱᴛʏʟɪɴɢ\n"
-        f"┃ ┃ ✅ ᴅʏɴᴀᴍɪᴄ ꜱᴜᴅᴏ ʟɪꜱᴛ\n"
-        f"┃ ┃ ✅ ꜱᴇᴄᴜʀᴇ ᴀᴄᴄᴇꜱꜱ\n"
-        f"┃ ┗───────────╼\n"
-        f"┃ ┏─「 ʜᴏᴡ ᴛᴏ ᴏᴘᴇʀᴀᴛᴇ 」\n"
-        f"┃ ┃ 1️⃣ ꜱᴇɴᴅ ᴀɴʏ ɴᴀᴍᴇ (ᴇ.ɢ. ᴅᴀʀᴋ ɢᴀɴɢ)\n"
-        f"┃ ┃ 2️⃣ ᴜꜱᴇ /sudo ᴛᴏ ᴍᴀɴᴀɢᴇ ᴏᴡɴᴇʀꜱ\n"
-        f"┃ ┗───────────╼\n"
-        f"┃ ┏─「 sʏsᴛᴇᴍ ɪɴғᴏ 」\n"
-        f"┃ ┃ 👨‍💻 ᴅᴇᴠᴇʟᴏᴘᴇʀ: <b>DX-CODEX</b>\n"
-        f"┃ ┗───────────╼\n"
-        f"┗━━━━━━━━━━┛</b>"
-    ).format(message=message)
+        f"<b>┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n"
+        f"┣ 👤 ɴᴀᴍᴇ: {message.from_user.first_name}\n"
+        f"┣ 🆔 ɪᴅ: <code>{message.from_user.id}</code>\n"
+        f"┣ 🛡️ ʀᴏʟᴇ: {role}\n"
+        f"┗━➾ 👨‍💻 ᴅᴇᴠ: DX-CODEX</b>"
+    )
     bot.reply_to(message, msg)
 
 @bot.message_handler(commands=['sudo'])
 def handle_sudo(message):
-    if not is_owner(message.from_user.id): return
+    uid = message.from_user.id
+    if not is_authorized(uid): return
     
-    bot.send_chat_action(message.chat.id, 'typing')
     args = message.text.split()
     
+    # Show Sudo List
     if len(args) == 1:
-        id_list = "\n".join([f"┃ ┃ ⚡ <code>{uid}</code>" for uid in OWNER_ID])
-        msg = (
-            f"<b>┏━━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」━━┓\n"
-            f"┃ ┏─「 ᴀᴄᴛɪᴠᴇ ᴏᴡɴᴇʀꜱ 」\n"
-            f"{id_list}\n"
-            f"┃ ┗───────────╼\n"
-            f"┗━━━━━━━━━━━━┛</b>"
-        )
-        return bot.reply_to(message, msg)
+        bot.send_chat_action(message.chat.id, 'typing')
+        sudo_users = get_sudo_list()
+        
+        if not sudo_users:
+            return bot.reply_to(message, "<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n┗ ➾ 🚫 ɴᴏ ꜱᴜᴅᴏ ᴜꜱᴇʀꜱ ꜰᴏᴜɴᴅ.</b>")
+        
+        id_list = ""
+        for s_id in sudo_users:
+            try:
+                user_info = bot.get_chat(s_id)
+                name = user_info.first_name
+                if user_info.last_name:
+                    name += f" {user_info.last_name}"
+                mention = f"<a href='tg://user?id={s_id}'>{name}</a>"
+            except:
+                mention = f"<a href='tg://user?id={s_id}'>ᴜɴᴋɴᴏᴡɴ ᴜꜱᴇʀ</a>"
+                
+            id_list += f"┣ 🆔 <code>{s_id}</code>\n┃ ┗ 👤 {mention}\n"
+            
+        msg = f"<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n{id_list}┗━➾ ᴛᴏᴛᴀʟ: {len(sudo_users)}</b>"
+        return bot.reply_to(message, msg, disable_web_page_preview=True)
 
-    new_id = args[1]
-    if new_id.isdigit():
-        new_id = int(new_id)
-        if new_id not in OWNER_ID:
-            OWNER_ID.append(new_id)
-            bot.reply_to(message, f"✅ <b>ɪᴅ</b> <code>{new_id}</code> <b>ʜᴀꜱ ʙᴇᴇɴ ᴀᴅᴅᴇᴅ ᴛᴏ ꜱᴜᴅᴏ!</b>")
+    # Add Sudo (Only Owner)
+    if is_owner(uid):
+        new_id = args[1]
+        if new_id.isdigit():
+            new_id = int(new_id)
+            if new_id in OWNER_ID:
+                bot.reply_to(message, "⚠️ <b>ᴛʜɪꜱ ɪᴅ ɪꜱ ᴀʟʀᴇᴀᴅʏ ᴀɴ ᴏᴡɴᴇʀ.</b>")
+            elif new_id in get_sudo_list():
+                bot.reply_to(message, "⚠️ <b>ᴛʜɪꜱ ɪᴅ ɪꜱ ᴀʟʀᴇᴀᴅʏ ɪɴ ᴛʜᴇ ꜱᴜᴅᴏ ʟɪꜱᴛ.</b>")
+            else:
+                sudo_db.insert_one({"_id": new_id})
+                bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ᴀᴅᴅᴇᴅ 」\n┗ ➾ ✅ ɪᴅ: <code>{new_id}</code></b>")
         else:
-            bot.reply_to(message, "⚠️ <b>ᴛʜɪꜱ ɪᴅ ɪꜱ ᴀʟʀᴇᴀᴅʏ ɪɴ ᴛʜᴇ ʟɪꜱᴛ.</b>")
+            bot.reply_to(message, "❌ <b>ᴘʟᴇᴀꜱᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴠᴀʟɪᴅ ɴᴜᴍᴇʀɪᴄ ɪᴅ.</b>")
     else:
-        bot.reply_to(message, "❌ <b>ᴘʟᴇᴀꜱᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴠᴀʟɪᴅ ɴᴜᴍᴇʀɪᴄ ɪᴅ.</b>")
+        bot.reply_to(message, "🚫 <b>ᴏɴʟʏ ᴏᴡɴᴇʀꜱ ᴄᴀɴ ᴀᴅᴅ ꜱᴜᴅᴏ ᴜꜱᴇʀꜱ.</b>")
 
 @bot.message_handler(commands=['rm'])
 def handle_remove(message):
-    if not is_owner(message.from_user.id): return
-    
-    bot.send_chat_action(message.chat.id, 'typing')
+    uid = message.from_user.id
+    if not is_owner(uid): 
+        if is_authorized(uid):
+            bot.reply_to(message, "🚫 <b>ᴏɴʟʏ ᴏᴡɴᴇʀꜱ ᴄᴀɴ ʀᴇᴍᴏᴠᴇ ꜱᴜᴅᴏ ᴜꜱᴇʀꜱ.</b>")
+        return
+        
     args = message.text.split()
     if len(args) > 1 and args[1].isdigit():
         target_id = int(args[1])
-        if target_id in OWNER_ID:
-            OWNER_ID.remove(target_id)
-            bot.reply_to(message, f"🗑️ <b>ɪᴅ</b> <code>{target_id}</code> <b>ʀᴇᴍᴏᴠᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ.</b>")
+        if sudo_db.find_one({"_id": target_id}):
+            sudo_db.delete_one({"_id": target_id})
+            bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ʀᴇᴍᴏᴠᴇᴅ 」\n┗ ➾ 🗑️ ɪᴅ: <code>{target_id}</code></b>")
         else:
             bot.reply_to(message, "⚠️ <b>ɪᴅ ɴᴏᴛ ꜰᴏᴜɴᴅ ɪɴ ꜱᴜᴅᴏ ʟɪꜱᴛ.</b>")
     else:
@@ -105,20 +121,42 @@ def handle_remove(message):
 
 @bot.message_handler(func=lambda message: True)
 def process_style(message):
-    if not is_owner(message.from_user.id): return
-    
+    if not is_authorized(message.from_user.id): return
     bot.send_chat_action(message.chat.id, 'typing')
-    styled_name = advanced_styler(message.text)
     
-    response = (
-        f"<b>┏━━━━「 ɢᴇɴᴇʀᴀᴛᴇᴅ 」━━━━┓\n"
-        f"┃\n"
-        f"┃ ✨</b> <code>{styled_name}</code>\n"
-        f"<b>┃\n"
-        f"┗━━━━━━━━━━━━━━━━┛</b>"
+    # Core Styling Logic
+    clean_text = re.sub(r'[_.]', ' ', message.text).strip()
+    words = re.split(r'[- ]+', clean_text)
+    normalized = "-".join([w.capitalize() for w in words if w])
+    
+    styled_base = "".join([CHAR_MAP.get(c, c) for c in normalized])
+    
+    style1 = f"「𖣂」{styled_base}ايڪـͬــͤــᷜــͨــͣــͪـي"
+    style2 = styled_base
+    
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_alert"))
+    
+    # Style 1 Message (With Symbols)
+    msg1 = (
+        f"<b>┏━「 sᴛʏʟᴇ 𝟷 」</b>\n"
+        f"┣ <code>{style1}</code>\n"
+        f"<b>┗━━━━━━━━━</b>"
     )
-    bot.reply_to(message, response)
+    bot.send_message(message.chat.id, msg1, reply_markup=markup)
+    
+    # Style 2 Message (Normal Font)
+    msg2 = (
+        f"<b>┏━「 sᴛʏʟᴇ 𝟸 」</b>\n"
+        f"┣ <code>{style2}</code>\n"
+        f"<b>┗━━━━━━━━━</b>"
+    )
+    bot.send_message(message.chat.id, msg2, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "copy_alert")
+def copy_callback(call):
+    bot.answer_callback_query(call.id, "👆 Text er upore click korun copy korar jonne!", show_alert=True)
 
 if __name__ == "__main__":
-    print(">> Bot is Online and Secured.")
+    print(">> NIKO is Online. System Secured by DX-CODEX.")
     bot.infinity_polling()
