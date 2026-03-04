@@ -45,32 +45,40 @@ FONT_MAP = {
 # Borders Dictionary
 BORDERS = {
     'short': [
-        "┏━「  」\n┣ \n┗━╼",
-        "┌──「  」──┐\n│ \n└────────┘",
-        "╭──「  」──╮\n│ \n╰────────╯",
-        "╔══「  」══╗\n║ \n╚════════╝",
-        "┏━⊳ \n┣ \n┗━⊳",
-        "╒══「  」══╕\n│ \n╘════════╛",
-        "┏━•\n┣ •\n┗━•",
-        "┌─[  ]\n├─ \n└─",
-        "╭─[  ]\n├─ \n╰─",
-        "╔═[  ]\n╠═ \n╚═",
-        "┏━━『 』━━┓\n┣ ➾ \n┗━━━━━━━┛",
-        "╭━〔 〕━╮\n┃ ➢ \n╰━━━━━━╯"
+        "┏━━━━━━━━━━━━━━━┓\n┣ \n┗━━━━━━━━━━━━━━━┛",
+        "╭─── •✧✧• ───╮\n│ \n╰─── •✧✧• ───╯",
+        "╔════ ≪ °❈° ≫ ════╗\n║ \n╚════ ≪ °❈° ≫ ════╝",
+        "┌──❀*̥˚─────❀*̥˚─┐\n│ \n└───────❀*̥˚───┘",
+        "╭─✰───────────╮\n│ \n╰───────────✰─╯",
+        "┏━✦ ━━━━━━━━━ ✦━┓\n┣ \n┗━✦ ━━━━━━━━━ ✦━┛",
+        "╒═══════✰°\n│ \n°✰═══════╛",
+        "╭┈─────── ೄྀ࿐ ˊˎ-\n╰┈➤ \n╰─────────────➤",
+        "┏━°⌜ 赤 ⌟°━┓\n┣ \n┗━°⌜ 赤 ⌟°━┛",
+        "┌─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┐\n│ \n└─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┘",
+        "┏━「  」\n┣ \n┗━╼"
     ],
     'dashboard': [
-        "┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n┣ 👤 ɴᴀᴍᴇ: \n┣ 🆔 ɪᴅ: \n┣ 🛡️ ʀᴏʟᴇ: \n┗━➾ 👨‍💻 ᴅᴇᴠ: Ｄｘ－Ｓｉｍｕ",
         "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┗───────────╼\n┃ ┏─「 ʜᴏᴡ ᴛᴏ ᴏᴘᴇʀᴀᴛᴇ 」\n┃ ┃ 1️⃣ \n┃ ┃ 2️⃣ \n┃ ┃ 3️⃣ \n┃ ┃ 4️⃣ \n┃ ┗───────────╼\n┃ ┏─「 sʏsᴛᴇᴍ ɪɴғᴏ 」\n┃ ┃ 👨‍💻 ᴅᴇᴠᴇʟᴏᴘᴇʀ: Ｄｘ－Ｓｉｍｕ\n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
         "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ \n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ 🗑 \n┃ ┃ 📌 \n┃ ┃ 🔊 \n┃ ┃ 🚀 \n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
+        "╭─── ⋆⋅☆⋅⋆ ───╮\n│ 👤 ᴜsᴇʀ: \n│ 🆔 ɪᴅ: \n│ 🛡️ ʀᴏʟᴇ: \n╰─── ⋆⋅☆⋅⋆ ───╯",
+        "┏━✦ ᴘʀᴏғɪʟᴇ ✦━┓\n┣ ɴᴀᴍᴇ: \n┣ ᴀɢᴇ: \n┗━✦ ━━━━━━ ✦━┛",
+        "╔═════ ≪ ᴘᴀɴᴇʟ ≫ ═════╗\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟷\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟸\n╚══════════════════╝"
+    ],
+    'music': [
+        "┏━♬ ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♬━┓\n┣ 🎵 ᴛʀᴀᴄᴋ: \n┣ 🎤 ᴀʀᴛɪsᴛ: \n┣ ⏳ 0:00 ───|────── 3:14\n┣ ↻ ◁ II ▷ ↺\n┗━━━━━━━━━━━━━━━┛",
+        "╭─── 🎧 sᴏɴɢ ɪɴғᴏ ───╮\n│ 💿 ᴀʟʙᴜᴍ: \n│ 🎶 ɢᴇɴʀᴇ: \n╰──────────────────╯",
+        "╔═════ ≪ ᴍᴜsɪᴄ ≫ ═════╗\n║ 🔊 ᴠᴏʟᴜᴍᴇ: ▮▮▮▮▮▯▯\n║ ▶ ᴘʟᴀʏɪɴɢ: \n╚══════════════════╝"
+    ],
+    'warning': [
+        "┏━⚠️ ᴡᴀʀɴɪɴɢ ⚠️━┓\n┣ 🚫 ᴇʀʀᴏʀ: \n┣ 🛑 sᴛᴀᴛᴜs: \n┗━━━━━━━━━━━━━━┛",
+        "╭─── ☠️ ᴀʟᴇʀᴛ ☠️ ───╮\n│ ⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ\n╰─────────────────╯",
+        "╔════ ≪ ᴄʀɪᴛɪᴄᴀʟ ≫ ════╗\n║ ❌ ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ\n╚══════════════════╝"
+    ],
+    'info': [
         "┏━━「 ✅ ᴄʟᴀɪᴍᴇᴅ 」━━┓\n┃ 👤 ᴜsᴇʀ: \n┃ 💰 ʀᴇᴡᴀʀᴅ: +1 ᴄᴏɪɴ\n┗━━━━━━━━━━━━━━┛",
         "┏━━「 sᴛᴀᴛs 」━━┓\n┃ 📊 sʏsᴛᴇᴍ sᴛᴀᴛɪsᴛɪᴄs\n┗───────────╼\n┃ 👥 ᴛᴏᴛᴀʟ ᴜsᴇʀs: \n┃ 🔗 ᴀᴄᴛɪᴠᴇ ʟɪɴks: \n┃ 🚫 ʙᴀɴɴᴇᴅ ᴜsᴇʀs: \n┗━━━━━━━━━━┛",
-        "╭━━「 ɪɴғᴏ 」━━╮\n│ 👤 ᴜsᴇʀ: \n│ 🆔 ɪᴅ: \n╰━━━━━━━━━━╯",
-        "╔══「 sʏsᴛᴇᴍ 」══╗\n╠ ᴄᴘᴜ: \n╠ ʀᴀᴍ: \n╚═══════════╝",
-        "┏━[ ᴘʀᴏғɪʟᴇ ]━┓\n┣ ɴᴀᴍᴇ: \n┣ ᴀɢᴇ: \n┗━━━━━━━━━┛",
+        "╭─ ✧ sʏsᴛᴇᴍ ɪɴғᴏ ✧ ─╮\n│ 💻 ᴄᴘᴜ: \n│ 💾 ʀᴀᴍ: \n│ ⏱️ ᴜᴘᴛɪᴍᴇ: \n╰──────────────────╯",
         "┌──< sᴇᴛᴛɪɴɢs >──┐\n│ ⚙️ ᴍᴏᴅᴇ: \n│ 🔔 ᴀʟᴇʀᴛs: \n└────────────┘",
-        "╭─{ ᴀᴄᴄᴏᴜɴᴛ }─╮\n│ 💳 ʙᴀʟᴀɴᴄᴇ: \n│ 🪙 ᴄᴏɪɴs: \n╰───────────╯",
-        "┏━━「 ᴘᴀɴᴇʟ 」━━┓\n┣ ⚙️ ᴄᴏɴғɪɢ\n┣ 🔧 ᴛᴏᴏʟs\n┗━━━━━━━━━━┛",
-        "╔════『 ᴍᴇɴᴜ 』════╗\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟷\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟸\n╚══════════════╝",
         "╭━━━━〔 ɪɴᴅᴇx 〕━━━━╮\n┃ 📑 ᴘᴀɢᴇ: \n┃ 📌 sᴛᴀᴛᴜs: \n╰━━━━━━━━━━━━━━━╯"
     ]
 }
@@ -179,26 +187,30 @@ def border_handler(message):
     if uid not in SPECIAL_OWNERS: return
     
     args = message.text.split()
-    category = "short"
-    if len(args) > 1:
-        cat_arg = args[1].lower()
-        if cat_arg in ["dashboard", "list"]:
-            category = "all" if cat_arg == "list" else "dashboard"
-
-    send_border_page(message.chat.id, category, 0)
+    if len(args) == 1:
+        send_border_page(message.chat.id, "short", 0)
+    else:
+        category = args[1].lower()
+        if category == "list":
+            cats = list(BORDERS.keys())
+            cat_text = "<b>┏━「 ʙᴏʀᴅᴇʀ ᴄᴀᴛᴇɢᴏʀɪᴇs 」</b>\n"
+            for c in cats:
+                cat_text += f"┣ ✧ <code>/border {c}</code>\n"
+            cat_text += "<b>┗━╼</b>"
+            bot.reply_to(message, cat_text, parse_mode='HTML')
+        elif category in BORDERS:
+            send_border_page(message.chat.id, category, 0)
+        else:
+            bot.reply_to(message, "⚠️ <b>ᴄᴀᴛᴇɢᴏʀʏ ɴᴏᴛ ғᴏᴜɴᴅ. ᴜsᴇ /border list</b>", parse_mode='HTML')
 
 def send_border_page(chat_id, category, page_idx, message_id=None):
-    if category == "all":
-        items = BORDERS['short'] + BORDERS['dashboard']
-    else:
-        items = BORDERS.get(category, BORDERS['short'])
-        
+    items = BORDERS.get(category)
     if not items: return
     
     total = len(items)
     page_idx = page_idx % total
     
-    border_text = f"<b>┏━「 ʙᴏʀᴅᴇʀ ({page_idx+1}/{total}) 」</b>\n<code>{items[page_idx]}</code>"
+    border_text = f"<b>┏━「 {category.upper()} ʙᴏʀᴅᴇʀ ({page_idx+1}/{total}) 」</b>\n<code>{items[page_idx]}</code>"
     
     markup = InlineKeyboardMarkup()
     markup.row(
@@ -224,14 +236,14 @@ def process_style(message):
     mode = USER_MODES.get(uid, 1)
     
     if uid in SPECIAL_OWNERS and mode == 2:
-        # Mode 2 logic: Keep structure, convert using FONT_MAP
+        # Mode 2 logic: Just the styled text without borders, wrapped in code tags
         styled_text = "".join([FONT_MAP.get(c, c) for c in message.text])
         
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_hint"))
         
-        msg = f"<b>┏━「 sᴛʏʟᴇ ᴍᴏᴅᴇ 𝟸 」</b>\n┣ <code>{styled_text}</code>\n<b>┗━╼</b>"
-        bot.send_message(message.chat.id, msg, reply_markup=markup)
+        msg = f"<code>{styled_text}</code>"
+        bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode='HTML')
         
     else:
         # Mode 1 logic (Original)
