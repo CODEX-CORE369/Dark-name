@@ -7,10 +7,11 @@ from telebot.types import Message
 from pymongo import MongoClient
 from flask import Flask
 from sambanova import SambaNova
+import html # Added for safe formatting fallback
 
 # ================= Configuration ================= #
-BOT_TOKEN = "8116940440:AAEAuKJosg2T0cgWPuoZ744rwcGu1klJ8wA"
-MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" # Tumi tomar token bosao
+MONGO_URI = "YOUR_MONGO_URI_HERE" # Tumi tomar URI bosao
 SAMBA_API_KEY = "057d42ba-2ab5-4afa-a35b-78446a8ed165"
 
 OWNER_IDS = [6703335929, 5136260272]
@@ -37,7 +38,6 @@ def remove_sudo_user(user_id):
 # ================= Fancy Font System ================= #
 def fancy_text(text):
     normal = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    # Special attention to 'q' and 'z' as per your previous preferences
     fancy =  "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
     mapping = str.maketrans(normal, fancy)
     return text.translate(mapping)
@@ -48,20 +48,23 @@ ai_client = SambaNova(
     base_url="https://api.sambanova.ai/v1",
 )
 
+# [HYPER LOGIC] Strict System Prompt for Telegram HTML
 SYSTEM_PROMPT = """You are Dx-Simu, an advanced AI chatbot. 
 Your model name is "niko 1.0" and your developer is "DX-CODEX".
-IMPORTANT FORMATTING RULES:
-- You must ONLY use HTML tags for formatting. DO NOT use Markdown (like ** or `).
-- Use <pre> for any code blocks or scripts so they can be copied easily.
-- Use <code> for file names, inline code, or small copyable items.
-- Use <b> for titles, headings, or important keywords.
-- Use <blockquote> for quotes, notes, or highlighted text blocks.
+
+CRITICAL HTML FORMATTING RULES FOR TELEGRAM:
+1. You MUST ONLY use these EXACT HTML tags: <b>, <i>, <u>, <s>, <code>, <pre>, <blockquote>.
+2. DO NOT USE <ul>, <ol>, <li>, <p>, <br>, <h1>, <h2>, etc. Use standard characters like "-" for bullets.
+3. For CODE blocks, you MUST use this format: <pre><code class="language-python">code here</code></pre>.
+4. For inline code or filenames, use <code>name</code>.
+5. For titles or important text, use <b>Title</b>.
+6. Absolutely NO markdown like **bold** or `code`. ONLY use the allowed HTML tags.
 Answer strictly in the requested language."""
 
 # ================= Keep Alive & Web Server ================= #
 @app.route('/')
 def home():
-    return "Dx-Simu Bot is Running!"
+    return "Dx-Simu Bot is Running perfectly!"
 
 def keep_alive():
     B = "INFO" 
@@ -105,7 +108,6 @@ def sudo_manager(message: Message):
 
     parts = message.text.split()
     if len(parts) == 1:
-        # List Sudo Users
         users = get_sudo_users()
         if not users:
             bot.reply_to(message, fancy_text("sᴜᴅᴏ ʟɪsᴛ ɪs ᴇᴍᴘᴛʏ."))
@@ -113,7 +115,6 @@ def sudo_manager(message: Message):
             msg = fancy_text("ᴄᴜʀʀᴇɴᴛ sᴜᴅᴏ ᴜsᴇʀs:\n") + "\n".join([f"<code>{u}</code>" for u in users])
             bot.reply_to(message, msg)
     else:
-        # Add Sudo User
         try:
             new_id = int(parts[1])
             add_sudo_user(new_id)
@@ -142,9 +143,8 @@ def rm_sudo(message: Message):
 @bot.message_handler(func=lambda message: True)
 def ai_chat(message: Message):
     if not is_authorized(message.from_user.id):
-        return # Ignore unauthorized messages completely
+        return
     
-    # Cool Animation (Loading State)
     loading_text = fancy_text("⏳ ᴘ ʀ ᴏ ᴄ ᴇ s s ɪ ɴ ɢ   ʏ ᴏ ᴜ ʀ   ʀ ᴇ ǫ ᴜ ᴇ s ᴛ . . .")
     sent_msg = bot.reply_to(message, f"<b>{loading_text}</b>")
     
@@ -155,36 +155,47 @@ def ai_chat(message: Message):
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": message.text}
             ],
-            temperature=0.3, # Slightly increased from 0.1 for better code generation flow
+            temperature=0.3,
             top_p=0.9
         )
         
         reply_text = response.choices[0].message.content
         
-        # Edit the loading message to the actual AI response
-        bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=sent_msg.message_id,
-            text=reply_text,
-            parse_mode='HTML'
-        )
-        
+        # [HYPER LOGIC] Fail-safe editing to handle Telegram formatting issues
+        try:
+            bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=sent_msg.message_id,
+                text=reply_text,
+                parse_mode='HTML'
+            )
+        except telebot.apihelper.ApiTelegramException as e:
+            if 'parse entities' in str(e):
+                # AI gave invalid HTML. Let's escape it and send it safely inside a <pre> tag!
+                safe_text = html.escape(reply_text)
+                bot.edit_message_text(
+                    chat_id=message.chat.id,
+                    message_id=sent_msg.message_id,
+                    text=f"<b>[Formatting Fixed]</b>\n<pre>{safe_text}</pre>",
+                    parse_mode='HTML'
+                )
+            else:
+                raise e # Throw other Telegram errors to the main exception block
+            
     except Exception as e:
         error_msg = fancy_text("ᴀɴ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ ᴡʜɪʟᴇ ɢᴇɴᴇʀᴀᴛɪɴɢ ʀᴇsᴘᴏɴsᴇ.")
+        # Catch tokenization or API errors nicely
         bot.edit_message_text(
             chat_id=message.chat.id,
             message_id=sent_msg.message_id,
-            text=f"<b>{error_msg}</b>\n\n<code>{str(e)}</code>",
+            text=f"<b>{error_msg}</b>\n\n<pre>Error Details:\n{html.escape(str(e))}</pre>",
             parse_mode='HTML'
         )
 
 # ================= Main Execution ================= #
 if __name__ == "__main__":
-    # Start Flask server for Render port binding
     threading.Thread(target=run_flask, daemon=True).start()
-    
-    # Start Keep Alive Ping
     threading.Thread(target=keep_alive, daemon=True).start()
     
     print(fancy_text("[ ɪɴғᴏ ] ᴅx-sɪᴍᴜ ʙᴏᴛ ɪs sᴛᴀʀᴛɪɴɢ..."))
-    bot.infinity_polling()
+    bot.infinity_polling(skip_pending=True)
