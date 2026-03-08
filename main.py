@@ -1,295 +1,534 @@
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+#!/usr/bin/env python3
+"""
+╔══════════════════════════════════════════════════╗
+║          DX-SIMU AI TELEGRAM BOT                 ║
+║          Developer  : DX-CODEX                   ║
+║          AI Model   : niko 1.0                   ║
+║          Host       : Render                     ║
+╚══════════════════════════════════════════════════╝
+"""
+
+import os
+import html
 import re
 import time
+import asyncio
+import threading
+import requests
+from flask import Flask
 from pymongo import MongoClient
+from openai import OpenAI
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+)
+from telegram.constants import ParseMode, ChatAction
 
-# --- CONFIGURATION ---
-BOT_TOKEN = "8773837287:AAFZDqWyq1kac9tSAGehIDxSSDzLECU0fHg"
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
-
-# MongoDB Connection
+# ═══════════════════════════════════════════════════
+#                    CONFIGURATION
+# ═══════════════════════════════════════════════════
+BOT_TOKEN = "8116940440:AAEAuKJosg2T0cgWPuoZ744rwcGu1klJ8wA"
+OWNER_IDS = [6703335929, 5136260272]
 MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
-client = MongoClient(MONGO_URI)
-db = client["DARK-NAMEX"]
-sudo_db = db["sudo_users"]
+API_KEY   = "057d42ba-2ab5-4afa-a35b-78446a8ed165"
 
-# Constant Owners
-OWNER_ID = [6703335929, 5136260272, 6737589257, 7819700191]
-SPECIAL_OWNERS = [6703335929, 5136260272]
+AI_NAME  = "Dx-Simu"
+AI_MODEL = "niko 1.0"
+AI_DEV   = "DX-CODEX"
+SAMBA_MODEL = "ALLaM-7B-Instruct-preview"
 
-# Active Modes for Special Owners (Default is 1)
-USER_MODES = {6703335929: 1, 5136260272: 1}
+# ═══════════════════════════════════════════════════
+#                    MONGODB SETUP
+# ═══════════════════════════════════════════════════
+mongo_client = MongoClient(MONGO_URI)
+db           = mongo_client["CODE-AI"]        # database name
+sudo_col     = db["sudo_users"]               # collection
 
-# Character Map for Styling (Mode 1)
-CHAR_MAP = {
-    'a': 'ａ', 'b': 'ｂ', 'c': 'ｃ', 'd': 'ｄ', 'e': 'ｅ', 'f': 'ｆ', 'g': 'ｇ', 'h': 'ｈ', 'i': 'ｉ', 
-    'j': 'ｊ', 'k': 'ｋ', 'l': 'ｌ', 'm': 'ｍ', 'n': 'ｎ', 'o': 'ｏ', 'p': 'ｐ', 'q': 'ｑ', 'r': 'ｒ', 
-    's': 'ｓ', 't': 'ｔ', 'u': 'ｕ', 'v': 'ｖ', 'w': 'ｗ', 'x': 'ｘ', 'y': 'ｙ', 'z': 'ｚ',
-    'A': 'Ａ', 'B': 'Ｂ', 'C': 'Ｃ', 'D': 'Ｄ', 'E': 'Ｅ', 'F': 'Ｆ', 'G': 'Ｇ', 'H': 'Ｈ', 'I': 'Ｉ', 
-    'J': 'Ｊ', 'K': 'Ｋ', 'L': 'Ｌ', 'M': 'Ｍ', 'N': 'Ｎ', 'O': 'Ｏ', 'P': 'Ｐ', 'Q': 'Ｑ', 'R': 'Ｒ', 
-    'S': 'Ｓ', 'T': 'Ｔ', 'U': 'Ｕ', 'V': 'Ｖ', 'W': 'Ｗ', 'X': 'Ｘ', 'Y': 'Ｙ', 'Z': 'Ｚ',
-    '0': '０', '1': '１', '2': '２', '3': '３', '4': '４', '5': '５', '6': '６', '7': '７', '8': '８', '9': '９',
-    '-': '－', '&': '＆', '=': '＝', '/': '／', '$': '＄', '%': '％', '?': '？', ',': '，', ';': '；', 
-    ':': '：', '"': '＂', "'": '＇', '!': '！', '@': '＠', '#': '＃', '.': '．', ' ': '－'
-}
+# ═══════════════════════════════════════════════════
+#                    AI CLIENT
+# ═══════════════════════════════════════════════════
+ai_client = OpenAI(
+    api_key  = API_KEY,
+    base_url = "https://api.sambanova.ai/v1",
+)
 
-# Font Map for Mode 2
-FONT_MAP = {
-    'a':'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ғ','g':'ɢ','h':'ʜ','i':'ɪ','j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ',
-    'n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ','s':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ',
-    'A':'ᴀ','B':'ʙ','C':'ᴄ','D':'ᴅ','E':'ᴇ','F':'ғ','G':'ɢ','H':'ʜ','I':'ɪ','J':'ᴊ','K':'ᴋ','L':'ʟ','M':'ᴍ',
-    'N':'ɴ','O':'ᴏ','P':'ᴘ','Q':'ǫ','R':'ʀ','S':'s','T':'ᴛ','U':'ᴜ','V':'ᴠ','W':'ᴡ','X':'x','Y':'ʏ','Z':'ᴢ'
-}
+# ═══════════════════════════════════════════════════
+#                    FLASK KEEP-ALIVE SERVER
+# ═══════════════════════════════════════════════════
+flask_app = Flask(__name__)
 
-# Borders Dictionary
-BORDERS = {
-    'short': [
-        "┏━━━━━━━━━━━━━━━┓\n┣ \n┗━━━━━━━━━━━━━━━┛",
-        "╭─── •✧✧• ───╮\n│ \n╰─── •✧✧• ───╯",
-        "╔════ ≪ °❈° ≫ ════╗\n║ \n╚════ ≪ °❈° ≫ ════╝",
-        "┌──❀*̥˚─────❀*̥˚─┐\n│ \n└───────❀*̥˚───┘",
-        "╭─✰───────────╮\n│ \n╰───────────✰─╯",
-        "┏━✦ ━━━━━━━━━ ✦━┓\n┣ \n┗━✦ ━━━━━━━━━ ✦━┛",
-        "╒═══════✰°\n│ \n°✰═══════╛",
-        "╭┈─────── ೄྀ࿐ ˊˎ-\n╰┈➤ \n╰─────────────➤",
-        "┏━°⌜ 赤 ⌟°━┓\n┣ \n┗━°⌜ 赤 ⌟°━┛",
-        "┌─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┐\n│ \n└─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┘",
-        "┏━「  」\n┣ \n┗━╼"
-    ],
-    'dashboard': [
-        "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┗───────────╼\n┃ ┏─「 ʜᴏᴡ ᴛᴏ ᴏᴘᴇʀᴀᴛᴇ 」\n┃ ┃ 1️⃣ \n┃ ┃ 2️⃣ \n┃ ┃ 3️⃣ \n┃ ┃ 4️⃣ \n┃ ┗───────────╼\n┃ ┏─「 sʏsᴛᴇᴍ ɪɴғᴏ 」\n┃ ┃ 👨‍💻 ᴅᴇᴠᴇʟᴏᴘᴇʀ: Ｄｘ－Ｓｉｍｕ\n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
-        "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ \n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ 🗑 \n┃ ┃ 📌 \n┃ ┃ 🔊 \n┃ ┃ 🚀 \n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
-        "╭─── ⋆⋅☆⋅⋆ ───╮\n│ 👤 ᴜsᴇʀ: \n│ 🆔 ɪᴅ: \n│ 🛡️ ʀᴏʟᴇ: \n╰─── ⋆⋅☆⋅⋆ ───╯",
-        "┏━✦ ᴘʀᴏғɪʟᴇ ✦━┓\n┣ ɴᴀᴍᴇ: \n┣ ᴀɢᴇ: \n┗━✦ ━━━━━━ ✦━┛",
-        "╔═════ ≪ ᴘᴀɴᴇʟ ≫ ═════╗\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟷\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟸\n╚══════════════════╝"
-    ],
-    'music': [
-        "┏━♬ ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♬━┓\n┣ 🎵 ᴛʀᴀᴄᴋ: \n┣ 🎤 ᴀʀᴛɪsᴛ: \n┣ ⏳ 0:00 ───|────── 3:14\n┣ ↻ ◁ II ▷ ↺\n┗━━━━━━━━━━━━━━━┛",
-        "╭─── 🎧 sᴏɴɢ ɪɴғᴏ ───╮\n│ 💿 ᴀʟʙᴜᴍ: \n│ 🎶 ɢᴇɴʀᴇ: \n╰──────────────────╯",
-        "╔═════ ≪ ᴍᴜsɪᴄ ≫ ═════╗\n║ 🔊 ᴠᴏʟᴜᴍᴇ: ▮▮▮▮▮▯▯\n║ ▶ ᴘʟᴀʏɪɴɢ: \n╚══════════════════╝"
-    ],
-    'warning': [
-        "┏━⚠️ ᴡᴀʀɴɪɴɢ ⚠️━┓\n┣ 🚫 ᴇʀʀᴏʀ: \n┣ 🛑 sᴛᴀᴛᴜs: \n┗━━━━━━━━━━━━━━┛",
-        "╭─── ☠️ ᴀʟᴇʀᴛ ☠️ ───╮\n│ ⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ\n╰─────────────────╯",
-        "╔════ ≪ ᴄʀɪᴛɪᴄᴀʟ ≫ ════╗\n║ ❌ ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ\n╚══════════════════╝"
-    ],
-    'info': [
-        "┏━━「 ✅ ᴄʟᴀɪᴍᴇᴅ 」━━┓\n┃ 👤 ᴜsᴇʀ: \n┃ 💰 ʀᴇᴡᴀʀᴅ: +1 ᴄᴏɪɴ\n┗━━━━━━━━━━━━━━┛",
-        "┏━━「 sᴛᴀᴛs 」━━┓\n┃ 📊 sʏsᴛᴇᴍ sᴛᴀᴛɪsᴛɪᴄs\n┗───────────╼\n┃ 👥 ᴛᴏᴛᴀʟ ᴜsᴇʀs: \n┃ 🔗 ᴀᴄᴛɪᴠᴇ ʟɪɴks: \n┃ 🚫 ʙᴀɴɴᴇᴅ ᴜsᴇʀs: \n┗━━━━━━━━━━┛",
-        "╭─ ✧ sʏsᴛᴇᴍ ɪɴғᴏ ✧ ─╮\n│ 💻 ᴄᴘᴜ: \n│ 💾 ʀᴀᴍ: \n│ ⏱️ ᴜᴘᴛɪᴍᴇ: \n╰──────────────────╯",
-        "┌──< sᴇᴛᴛɪɴɢs >──┐\n│ ⚙️ ᴍᴏᴅᴇ: \n│ 🔔 ᴀʟᴇʀᴛs: \n└────────────┘",
-        "╭━━━━〔 ɪɴᴅᴇx 〕━━━━╮\n┃ 📑 ᴘᴀɢᴇ: \n┃ 📌 sᴛᴀᴛᴜs: \n╰━━━━━━━━━━━━━━━╯"
-    ]
-}
+@flask_app.route("/")
+def index():
+    return f"<h2>🤖 {AI_NAME} — Online ✅</h2>", 200
 
-# --- DATABASE HELPERS ---
-def get_sudo_list():
-    return list(sudo_db.find())
+@flask_app.route("/health")
+def health():
+    return "OK", 200
 
-def is_owner(uid):
-    return uid in OWNER_ID
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port, use_reloader=False)
 
-def is_authorized(uid):
-    return is_owner(uid) or sudo_db.find_one({"_id": uid}) is not None
-
-def sync_user(user):
-    """Updates user name in DB whenever they interact with the bot."""
-    if is_authorized(user.id) and not is_owner(user.id):
-        full_name = f"{user.first_name} {user.last_name or ''}".strip()
-        sudo_db.update_one({"_id": user.id}, {"$set": {"name": full_name}}, upsert=True)
-
-# --- COMMAND HANDLERS ---
-
-@bot.message_handler(commands=['start'])
-def welcome_dashboard(message):
-    sync_user(message.from_user)
-    uid = message.from_user.id
-    if not is_authorized(uid): return
-
-    codex = '<a href="https://t.me/Dxcodexbot">Ｄｘ－Ｓｉｍｕ</a>'  
-    role = "👑 ᴏᴡɴᴇʀ" if is_owner(uid) else "⚡ ꜱᴜᴅᴏ"
-    
-    msg = (
-        f"<b>┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n"
-        f"┣ 👤 ɴᴀᴍᴇ: {message.from_user.first_name}\n"
-        f"┣ 🆔 ɪᴅ: <code>{message.from_user.id}</code>\n"
-        f"┣ 🛡️ ʀᴏʟᴇ: {role}\n"
-        f"┗━➾ 👨‍💻 ᴅᴇᴠ: {codex}</b>"
-    )
-    
-    markup = None
-    if uid in SPECIAL_OWNERS:
-        markup = InlineKeyboardMarkup()
-        markup.row(InlineKeyboardButton("✨ ᴍᴏᴅᴇ 𝟷 (ᴏʀɪɢɪɴᴀʟ)", callback_data="set_mode_1"))
-        markup.row(InlineKeyboardButton("🔠 ᴍᴏᴅᴇ 𝟸 (sᴍᴀʟʟ ᴄᴀᴘs)", callback_data="set_mode_2"))
-    
-    bot.reply_to(message, msg, disable_web_page_preview=True, reply_markup=markup)
-
-@bot.message_handler(commands=['sudo'])
-def handle_sudo(message):
-    uid = message.from_user.id
-    if not is_authorized(uid): return
-    
-    args = message.text.split()
-    
-    if len(args) == 1:
-        bot.send_chat_action(message.chat.id, 'typing')
-        sudo_users = get_sudo_list()
-        if not sudo_users:
-            return bot.reply_to(message, "<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n┗ ➾ 🚫 ɴᴏ ꜱᴜᴅᴏ ᴜꜱᴇʀꜱ.</b>")
-        
-        id_list = ""
-        for user in sudo_users:
-            s_id = user["_id"]
-            s_name = user.get("name", "ᴜɴᴋɴᴏᴡɴ (ɴᴏᴛ sᴛᴀʀᴛᴇᴅ)")
-            mention = f"<a href='tg://user?id={s_id}'>{s_name}</a>"
-            id_list += f"┣ 🆔 <code>{s_id}</code>\n┃ ┗ 👤 {mention}\n"
-            
-        msg = f"<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n{id_list}┗━➾ ᴛᴏᴛᴀʟ: {len(sudo_users)}</b>"
-        return bot.reply_to(message, msg, disable_web_page_preview=True)
-
-    if is_owner(uid):
-        new_id = args[1]
-        if new_id.isdigit():
-            new_id = int(new_id)
-            if new_id in OWNER_ID or sudo_db.find_one({"_id": new_id}):
-                return bot.reply_to(message, "⚠️ <b>ᴀʟʀᴇᴀᴅʏ ɪɴ ʟɪꜱᴛ.</b>")
-            
-            try:
-                u_info = bot.get_chat(new_id)
-                u_name = f"{u_info.first_name} {u_info.last_name or ''}".strip()
-            except:
-                u_name = "Not Started Yet"
-                
-            sudo_db.insert_one({"_id": new_id, "name": u_name})
-            bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ᴀᴅᴅᴇᴅ 」\n┗ ➾ ✅ ɪᴅ: <code>{new_id}</code></b>")
-        else:
-            bot.reply_to(message, "❌ <b>ᴠᴀʟɪᴅ ɪᴅ ᴘʟᴇᴀsᴇ.</b>")
-
-@bot.message_handler(commands=['rm'])
-def handle_remove(message):
-    if not is_owner(message.from_user.id): return
-    
-    args = message.text.split()
-    if len(args) > 1 and args[1].isdigit():
-        target_id = int(args[1])
-        if sudo_db.find_one({"_id": target_id}):
-            sudo_db.delete_one({"_id": target_id})
-            bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ʀᴇᴍᴏᴠᴇᴅ 」\n┗ ➾ 🗑️ ɪᴅ: <code>{target_id}</code></b>")
-        else:
-            bot.reply_to(message, "⚠️ <b>ɴᴏᴛ ꜰᴏᴜɴᴅ.</b>")
-
-# --- BORDER SYSTEM ---
-@bot.message_handler(commands=['border'])
-def border_handler(message):
-    uid = message.from_user.id
-    if uid not in SPECIAL_OWNERS: return
-    
-    args = message.text.split()
-    if len(args) == 1:
-        send_border_page(message.chat.id, "short", 0)
-    else:
-        category = args[1].lower()
-        if category == "list":
-            cats = list(BORDERS.keys())
-            cat_text = "<b>┏━「 ʙᴏʀᴅᴇʀ ᴄᴀᴛᴇɢᴏʀɪᴇs 」</b>\n"
-            for c in cats:
-                cat_text += f"┣ ✧ <code>/border {c}</code>\n"
-            cat_text += "<b>┗━╼</b>"
-            bot.reply_to(message, cat_text, parse_mode='HTML')
-        elif category in BORDERS:
-            send_border_page(message.chat.id, category, 0)
-        else:
-            bot.reply_to(message, "⚠️ <b>ᴄᴀᴛᴇɢᴏʀʏ ɴᴏᴛ ғᴏᴜɴᴅ. ᴜsᴇ /border list</b>", parse_mode='HTML')
-
-def send_border_page(chat_id, category, page_idx, message_id=None):
-    items = BORDERS.get(category)
-    if not items: return
-    
-    total = len(items)
-    page_idx = page_idx % total
-    
-    border_text = f"<b>┏━「 {category.upper()} ʙᴏʀᴅᴇʀ ({page_idx+1}/{total}) 」</b>\n<code>{items[page_idx]}</code>"
-    
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("⬅️ ᴘᴇᴠ", callback_data=f"bdr_{category}_{page_idx-1}"),
-        InlineKeyboardButton("📋 ᴄᴏᴘʏ", callback_data="copy_hint"),
-        InlineKeyboardButton("ɴᴇxᴛ ➡️", callback_data=f"bdr_{category}_{page_idx+1}")
-    )
-    
-    if message_id:
-        bot.edit_message_text(border_text, chat_id, message_id, reply_markup=markup, parse_mode='HTML')
-    else:
-        bot.send_message(chat_id, border_text, reply_markup=markup, parse_mode='HTML')
-
-# --- STYLING ENGINE ---
-
-@bot.message_handler(func=lambda message: not message.text.startswith('/'))
-def process_style(message):
-    uid = message.from_user.id
-    if not is_authorized(uid): return
-    sync_user(message.from_user)
-    bot.send_chat_action(message.chat.id, 'typing')
-    
-    mode = USER_MODES.get(uid, 1)
-    
-    if uid in SPECIAL_OWNERS and mode == 2:
-        # Mode 2 logic: Just the styled text without borders, wrapped in code tags
-        styled_text = "".join([FONT_MAP.get(c, c) for c in message.text])
-        
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_hint"))
-        
-        msg = f"<code>{styled_text}</code>"
-        bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode='HTML')
-        
-    else:
-        # Mode 1 logic (Original)
-        clean_text = re.sub(r'[_.]', ' ', message.text).strip()
-        words = re.split(r'[- ]+', clean_text)
-        normalized = "-".join([w.capitalize() for w in words if w])
-        styled_base = "".join([CHAR_MAP.get(c, c) for c in normalized])
-        
-        style1 = f"「𖣂」{styled_base}ايڪـͬــͤــᷜــͨــͣــͪـي"
-        style2 = styled_base
-        
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_hint"))
-        
-        msg1 = f"<b>┏━「 sᴛʏʟᴇ 𝟷 」</b>\n┣ <code>{style1}</code>\n<b>┗━╼</b>"
-        bot.send_message(message.chat.id, msg1, reply_markup=markup)
-        
-        msg2 = f"<b>┏━「 sᴛʏʟᴇ 𝟸 」</b>\n┣ <code>{style2}</code>\n<b>┗━╼</b>"
-        bot.send_message(message.chat.id, msg2, reply_markup=markup)
-
-# --- CALLBACK HANDLERS ---
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    uid = call.from_user.id
-    data = call.data
-    
-    if data == "copy_hint":
-        bot.answer_callback_query(call.id, "👆 ᴛᴇxᴛ-ᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴜɴ ᴄᴏᴘʏ ʜᴏʏᴇ ᴊᴀʙᴇ!", show_alert=True)
-        
-    elif data.startswith("set_mode_"):
-        if uid not in SPECIAL_OWNERS:
-            return bot.answer_callback_query(call.id, "❌ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ!", show_alert=True)
-        mode = int(data.split("_")[2])
-        USER_MODES[uid] = mode
-        bot.answer_callback_query(call.id, f"✅ sᴛʏʟᴇ ᴍᴏᴅᴇ {mode} ᴀᴄᴛɪᴠᴀᴛᴇᴅ!", show_alert=True)
-        
-    elif data.startswith("bdr_"):
-        if uid not in SPECIAL_OWNERS: return
-        _, category, page = data.split("_")
-        send_border_page(call.message.chat.id, category, int(page), call.message.message_id)
-
-if __name__ == "__main__":
-    print(">> NIKO is Online. System Secured by DX-CODEX.")
+def keep_alive():
+    B = "INFO"
+    port = int(os.environ.get("PORT", 8080))
+    URL  = os.environ.get("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
     while True:
         try:
-            bot.polling(none_stop=True, interval=0, timeout=20)
+            requests.get(URL, timeout=10)
+            print(f"[{B}] Pinging server ({URL}) to stay awake...")
         except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(5)
+            print(f"[{B}] Ping failed: {e}")
+        time.sleep(300)
+
+# ═══════════════════════════════════════════════════
+#                    CONVERSATION STORE  (in-memory)
+# ═══════════════════════════════════════════════════
+chat_history: dict[int, list] = {}
+
+SYSTEM_PROMPT = (
+    f"You are {AI_NAME}, an advanced AI assistant developed by {AI_DEV}. "
+    f"Your model version is {AI_MODEL}.\n\n"
+    "Formatting rules (strictly follow):\n"
+    "- Wrap ALL code in fenced code blocks with a language tag: ```python\\n...```\n"
+    "- Use **bold** for headings, key terms, and important points.\n"
+    "- Use > blockquote for notes, warnings, tips, or highlights.\n"
+    "- Use `inline code` for filenames, variables, commands, paths.\n"
+    "- Be friendly, helpful, concise but thorough."
+)
+
+# ═══════════════════════════════════════════════════
+#                    DB HELPERS
+# ═══════════════════════════════════════════════════
+def get_sudo_ids() -> list[int]:
+    return [d["user_id"] for d in sudo_col.find({}, {"user_id": 1, "_id": 0})]
+
+def is_allowed(uid: int) -> bool:
+    return uid in OWNER_IDS or uid in get_sudo_ids()
+
+def sudo_add(uid: int) -> bool:
+    if sudo_col.find_one({"user_id": uid}):
+        return False
+    sudo_col.insert_one({"user_id": uid})
+    return True
+
+def sudo_remove(uid: int) -> bool:
+    result = sudo_col.delete_one({"user_id": uid})
+    return result.deleted_count > 0
+
+# ═══════════════════════════════════════════════════
+#           MARKDOWN → TELEGRAM HTML FORMATTER
+# ═══════════════════════════════════════════════════
+def md_to_tg_html(text: str) -> str:
+    """
+    Convert AI markdown → Telegram-safe HTML.
+    Preserves code blocks, applies bold / blockquote /
+    inline-code / header conversions in plain text areas.
+    """
+    segments: list[tuple] = []
+    last = 0
+
+    # ── Step 1: extract fenced code blocks ──────────────
+    fence_re = re.compile(r"```([a-zA-Z0-9_+\-.]*)\n?([\s\S]*?)```", re.DOTALL)
+    for m in fence_re.finditer(text):
+        segments.append(("text", text[last : m.start()]))
+        segments.append(("code", m.group(1).strip(), m.group(2).strip()))
+        last = m.end()
+    segments.append(("text", text[last:]))
+
+    out: list[str] = []
+
+    for seg in segments:
+        # ── Fenced code block ─────────────────────────────
+        if seg[0] == "code":
+            lang        = seg[1]
+            escaped_code = html.escape(seg[2])
+            if lang:
+                out.append(
+                    f'<b>📄 {html.escape(lang)}</b>\n'
+                    f'<pre><code class="language-{html.escape(lang)}">'
+                    f"{escaped_code}"
+                    f"</code></pre>"
+                )
+            else:
+                out.append(f"<pre><code>{escaped_code}</code></pre>")
+            continue
+
+        # ── Plain text: handle inline code first ─────────
+        raw = seg[1]
+        inline_segs: list[tuple] = []
+        il_last = 0
+        for m2 in re.finditer(r"`([^`\n]+)`", raw):
+            inline_segs.append(("text",  raw[il_last : m2.start()]))
+            inline_segs.append(("icode", m2.group(1)))
+            il_last = m2.end()
+        inline_segs.append(("text", raw[il_last:]))
+
+        buf: list[str] = []
+        for iseg in inline_segs:
+            if iseg[0] == "icode":
+                buf.append(f"<code>{html.escape(iseg[1])}</code>")
+            else:
+                s = html.escape(iseg[1])          # escape FIRST
+                # **bold**
+                s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s, flags=re.DOTALL)
+                # ### heading → bold
+                s = re.sub(r"(?m)^#{1,3}\s+(.+)$", r"<b>\1</b>", s)
+                # > blockquote  (html-escaped '>' becomes '&gt;')
+                lines    = s.split("\n")
+                new_lines = []
+                for line in lines:
+                    if line.startswith("&gt; "):
+                        new_lines.append(f"<blockquote>{line[5:]}</blockquote>")
+                    elif line.rstrip() == "&gt;":
+                        new_lines.append("<blockquote> </blockquote>")
+                    else:
+                        new_lines.append(line)
+                s = "\n".join(new_lines)
+                buf.append(s)
+
+        out.append("".join(buf))
+
+    return "".join(out)
+
+# ═══════════════════════════════════════════════════
+#                    ANIMATION FRAMES
+# ═══════════════════════════════════════════════════
+FRAMES = [
+    "⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛  <b>0%</b>",
+    "🟦⬛⬛⬛⬛⬛⬛⬛⬛⬛  <b>10%</b>",
+    "🟦🟦⬛⬛⬛⬛⬛⬛⬛⬛  <b>20%</b>",
+    "🟦🟦🟦⬛⬛⬛⬛⬛⬛⬛  <b>30%</b>",
+    "🟦🟦🟦🟦⬛⬛⬛⬛⬛⬛  <b>40%</b>",
+    "🟦🟦🟦🟦🟦⬛⬛⬛⬛⬛  <b>50%</b>",
+    "🟦🟦🟦🟦🟦🟦⬛⬛⬛⬛  <b>60%</b>",
+    "🟦🟦🟦🟦🟦🟦🟦⬛⬛⬛  <b>70%</b>",
+    "🟦🟦🟦🟦🟦🟦🟦🟦⬛⬛  <b>80%</b>",
+    "🟦🟦🟦🟦🟦🟦🟦🟦🟦⬛  <b>90%</b>",
+    "🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦  ✅ <b>Done!</b>",
+]
+
+# ═══════════════════════════════════════════════════
+#                    AI CALL
+# ═══════════════════════════════════════════════════
+async def ask_ai(uid: int, user_msg: str) -> str:
+    if uid not in chat_history:
+        chat_history[uid] = []
+
+    chat_history[uid].append({"role": "user", "content": user_msg})
+
+    # Keep last 20 turns to avoid token overflow
+    if len(chat_history[uid]) > 20:
+        chat_history[uid] = chat_history[uid][-20:]
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + chat_history[uid]
+
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: ai_client.chat.completions.create(
+            model       = SAMBA_MODEL,
+            messages    = messages,
+            temperature = 0.7,
+            top_p       = 0.9,
+            max_tokens  = 2048,
+        ),
+    )
+
+    reply = response.choices[0].message.content
+    chat_history[uid].append({"role": "assistant", "content": reply})
+    return reply
+
+# ═══════════════════════════════════════════════════
+#                    SPLIT LONG HTML MESSAGES
+# ═══════════════════════════════════════════════════
+def split_html(text: str, limit: int = 4000) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for line in text.split("\n"):
+        if len(current) + len(line) + 1 > limit:
+            if current:
+                chunks.append(current)
+            current = line
+        else:
+            current += ("\n" if current else "") + line
+    if current:
+        chunks.append(current)
+    return chunks if chunks else [text[:limit]]
+
+# ═══════════════════════════════════════════════════
+#                    /start
+# ═══════════════════════════════════════════════════
+async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_allowed(uid):
+        return
+    name = html.escape(update.effective_user.first_name or "ᴜsᴇʀ")
+    text = (
+        f"<b>🤖  {AI_NAME}  —  ᴀɪ  ᴀssɪsᴛᴀɴᴛ</b>\n"
+        f"<b>━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
+        f"<blockquote>"
+        f"🧠  ᴍᴏᴅᴇʟ      :  <b>{AI_MODEL}</b>\n"
+        f"👨‍💻  ᴅᴇᴠᴇʟᴏᴘᴇʀ  :  <b>{AI_DEV}</b>"
+        f"</blockquote>\n\n"
+        f"ʜᴇʟʟᴏ,  <b>{name}</b>! 👋\n"
+        f"ɪ ᴀᴍ <b>{AI_NAME}</b>.  sᴇɴᴅ ᴍᴇ ᴀɴʏ ᴍᴇssᴀɢᴇ ᴛᴏ sᴛᴀʀᴛ ᴄʜᴀᴛᴛɪɴɢ!\n\n"
+        f"<b>📌  ᴄᴏᴍᴍᴀɴᴅs</b>\n"
+        f"<code>/start</code>      —  ᴡᴇʟᴄᴏᴍᴇ ᴍᴇssᴀɢᴇ\n"
+        f"<code>/clear</code>      —  ᴄʟᴇᴀʀ ᴄʜᴀᴛ ʜɪsᴛᴏʀʏ\n"
+        f"<code>/sudo [id]</code>  —  ᴀᴅᴅ / ʟɪsᴛ sᴜᴅᴏ ᴜsᴇʀ\n"
+        f"<code>/rm [id]</code>    —  ʀᴇᴍᴏᴠᴇ sᴜᴅᴏ ᴜsᴇʀ\n\n"
+        f"<b>━━━━━━━━━━━━━━━━━━━━━━━━</b>\n"
+        f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b> 🚀"
+    )
+    await update.message.reply_text(text, parse_mode=ParseMode.HTML)
+
+# ═══════════════════════════════════════════════════
+#                    /clear
+# ═══════════════════════════════════════════════════
+async def cmd_clear(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if not is_allowed(uid):
+        return
+    chat_history.pop(uid, None)
+    await update.message.reply_text(
+        f"<b>🗑️  ᴄʜᴀᴛ  ʜɪsᴛᴏʀʏ  ᴄʟᴇᴀʀᴇᴅ!</b>\n\n"
+        f"sᴛᴀʀᴛ  ᴀ  ꜰʀᴇsʜ  ᴄᴏɴᴠᴇʀsᴀᴛɪᴏɴ  ᴀɴʏᴛɪᴍᴇ. ✨\n\n"
+        f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>",
+        parse_mode=ParseMode.HTML,
+    )
+
+# ═══════════════════════════════════════════════════
+#                    /sudo
+# ═══════════════════════════════════════════════════
+async def cmd_sudo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in OWNER_IDS:
+        await update.message.reply_text(
+            "<b>⛔  ᴀᴄᴄᴇss  ᴅᴇɴɪᴇᴅ</b>\n"
+            "ᴏɴʟʏ  ᴏᴡɴᴇʀs  ᴄᴀɴ  ᴜsᴇ  ᴛʜɪs  ᴄᴏᴍᴍᴀɴᴅ.",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    args = ctx.args
+
+    # ── No args → list sudo users ─────────────────────
+    if not args:
+        ids = get_sudo_ids()
+        if not ids:
+            body = "<i>ɴᴏ  sᴜᴅᴏ  ᴜsᴇʀs  ʏᴇᴛ.</i>"
+        else:
+            body = "\n".join(f"• <code>{i}</code>" for i in ids)
+        await update.message.reply_text(
+            f"<b>📋  sᴜᴅᴏ  ᴜsᴇʀ  ʟɪsᴛ</b>\n\n"
+            f"<blockquote>{body}</blockquote>\n\n"
+            f"ᴛᴏᴛᴀʟ:  <b>{len(ids)}</b>  ᴜsᴇʀ(s)\n\n"
+            f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    # ── Args → add sudo user ──────────────────────────
+    try:
+        tid = int(args[0])
+    except ValueError:
+        await update.message.reply_text(
+            "<b>❌  ɪɴᴠᴀʟɪᴅ  ɪᴅ!</b>\n"
+            "ᴜsᴀɢᴇ:  <code>/sudo [user_id]</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if tid in OWNER_IDS:
+        await update.message.reply_text(
+            "<b>ℹ️</b>  ᴛʜᴀᴛ  ᴜsᴇʀ  ɪs  ᴀʟʀᴇᴀᴅʏ  ᴀɴ  ᴏᴡɴᴇʀ!",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if sudo_add(tid):
+        await update.message.reply_text(
+            f"<b>✅  sᴜᴅᴏ  ɢʀᴀɴᴛᴇᴅ!</b>\n\n"
+            f"ᴜsᴇʀ  <code>{tid}</code>  ᴄᴀɴ  ɴᴏᴡ  ᴜsᴇ  ᴛʜᴇ  ʙᴏᴛ.\n\n"
+            f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await update.message.reply_text(
+            f"<b>ℹ️</b>  <code>{tid}</code>  ɪs  ᴀʟʀᴇᴀᴅʏ  ᴀ  sᴜᴅᴏ  ᴜsᴇʀ!",
+            parse_mode=ParseMode.HTML,
+        )
+
+# ═══════════════════════════════════════════════════
+#                    /rm
+# ═══════════════════════════════════════════════════
+async def cmd_rm(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    if uid not in OWNER_IDS:
+        await update.message.reply_text(
+            "<b>⛔  ᴀᴄᴄᴇss  ᴅᴇɴɪᴇᴅ</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    args = ctx.args
+    if not args:
+        await update.message.reply_text(
+            "<b>❌  ᴜsᴀɢᴇ:</b>  <code>/rm [user_id]</code>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    try:
+        tid = int(args[0])
+    except ValueError:
+        await update.message.reply_text(
+            "<b>❌  ɪɴᴠᴀʟɪᴅ  ɪᴅ!</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    if sudo_remove(tid):
+        await update.message.reply_text(
+            f"<b>🗑️  sᴜᴅᴏ  ʀᴇᴍᴏᴠᴇᴅ!</b>\n\n"
+            f"ᴜsᴇʀ  <code>{tid}</code>  ʜᴀs  ʙᴇᴇɴ  ʀᴇᴍᴏᴠᴇᴅ  ꜰʀᴏᴍ  ᴛʜᴇ  ʟɪsᴛ.\n\n"
+            f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+    else:
+        await update.message.reply_text(
+            f"<b>❌</b>  <code>{tid}</code>  ɪs  ɴᴏᴛ  ɪɴ  ᴛʜᴇ  sᴜᴅᴏ  ʟɪsᴛ!",
+            parse_mode=ParseMode.HTML,
+        )
+
+# ═══════════════════════════════════════════════════
+#                    MESSAGE HANDLER
+# ═══════════════════════════════════════════════════
+async def handle_msg(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    uid       = update.effective_user.id
+    user_text = (update.message.text or "").strip()
+
+    if not is_allowed(uid) or not user_text:
+        return
+
+    # Send typing indicator
+    await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
+
+    # ── Initial loading message ───────────────────────
+    loading_msg = await update.message.reply_text(
+        f"<b>🤖  {AI_NAME}</b>  ɪs  ᴛʜɪɴᴋɪɴɢ...\n\n{FRAMES[0]}",
+        parse_mode=ParseMode.HTML,
+    )
+
+    # ── Animate progress bar while waiting for AI ─────
+    stop_event = asyncio.Event()
+
+    async def animate():
+        for frame in FRAMES[1:]:
+            if stop_event.is_set():
+                break
+            await asyncio.sleep(0.5)
+            try:
+                await loading_msg.edit_text(
+                    f"<b>🤖  {AI_NAME}</b>  ɪs  ᴘʀᴏᴄᴇssɪɴɢ...\n\n{frame}",
+                    parse_mode=ParseMode.HTML,
+                )
+            except Exception:
+                pass  # ignore Telegram rate-limit / no-change errors
+
+    anim_task = asyncio.create_task(animate())
+
+    # ── Call AI ───────────────────────────────────────
+    try:
+        raw_reply = await ask_ai(uid, user_text)
+    except Exception as e:
+        stop_event.set()
+        anim_task.cancel()
+        await loading_msg.edit_text(
+            f"<b>❌  ᴇʀʀᴏʀ  ᴏᴄᴄᴜʀʀᴇᴅ</b>\n\n"
+            f"<blockquote>{html.escape(str(e))}</blockquote>\n\n"
+            f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>",
+            parse_mode=ParseMode.HTML,
+        )
+        return
+
+    stop_event.set()
+    anim_task.cancel()
+
+    # ── Show completion flash ─────────────────────────
+    try:
+        await loading_msg.edit_text(
+            f"<b>🤖  {AI_NAME}</b>  ᴄᴏᴍᴘʟᴇᴛᴇᴅ!\n\n{FRAMES[-1]}",
+            parse_mode=ParseMode.HTML,
+        )
+        await asyncio.sleep(0.35)
+    except Exception:
+        pass
+
+    # ── Build formatted response ──────────────────────
+    formatted = md_to_tg_html(raw_reply)
+    header = (
+        f"<b>🤖  {AI_NAME}</b>\n"
+        f"<b>━━━━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
+    )
+    footer = (
+        f"\n\n<b>━━━━━━━━━━━━━━━━━━━━━━━━</b>\n"
+        f"sᴇɴᴛ  ʙʏ  <b>{AI_NAME}</b>  •  <i>{AI_MODEL}</i>"
+    )
+    full_text = header + formatted + footer
+
+    # ── Send (handle 4096-char Telegram limit) ────────
+    chunks = split_html(full_text)
+    if len(chunks) == 1:
+        try:
+            await loading_msg.edit_text(chunks[0], parse_mode=ParseMode.HTML)
+        except Exception:
+            await update.message.reply_text(chunks[0], parse_mode=ParseMode.HTML)
+    else:
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
+        for chunk in chunks:
+            await update.message.reply_text(chunk, parse_mode=ParseMode.HTML)
+
+# ═══════════════════════════════════════════════════
+#                    MAIN ENTRY POINT
+# ═══════════════════════════════════════════════════
+def main():
+    # Start Flask server in background (required for Render port binding)
+    threading.Thread(target=run_flask, daemon=True).start()
+    print("[INFO] Flask server started.")
+
+    # Start keep-alive pinger in background
+    threading.Thread(target=keep_alive, daemon=True).start()
+    print("[INFO] Keep-alive thread started.")
+
+    # Build and run Telegram bot
+    application = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
+
+    application.add_handler(CommandHandler("start", cmd_start))
+    application.add_handler(CommandHandler("clear", cmd_clear))
+    application.add_handler(CommandHandler("sudo",  cmd_sudo))
+    application.add_handler(CommandHandler("rm",    cmd_rm))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg)
+    )
+
+    print(f"[INFO] {AI_NAME} bot is running... 🚀")
+    application.run_polling(drop_pending_updates=True)
+
+
+if __name__ == "__main__":
+    main()
