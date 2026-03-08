@@ -10,8 +10,8 @@ from sambanova import SambaNova
 import html # Added for safe formatting fallback
 
 # ================= Configuration ================= #
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" # Tumi tomar token bosao
-MONGO_URI = "YOUR_MONGO_URI_HERE" # Tumi tomar URI bosao
+BOT_TOKEN = "8116940440:AAEAuKJosg2T0cgWPuoZ744rwcGu1klJ8wA" 
+MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
 SAMBA_API_KEY = "057d42ba-2ab5-4afa-a35b-78446a8ed165"
 
 OWNER_IDS = [6703335929, 5136260272]
