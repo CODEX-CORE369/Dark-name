@@ -1,201 +1,307 @@
-import os
-import time
-import threading
-import requests
 import telebot
-from telebot.types import Message
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import re
+import time
 from pymongo import MongoClient
+import os
+import requests
+import threading
 from flask import Flask
-from sambanova import SambaNova
-import html # Added for safe formatting fallback
 
-# ================= Configuration ================= #
-BOT_TOKEN = "8116940440:AAEAuKJosg2T0cgWPuoZ744rwcGu1klJ8wA" 
-MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
-SAMBA_API_KEY = "057d42ba-2ab5-4afa-a35b-78446a8ed165"
-
-OWNER_IDS = [6703335929, 5136260272]
-
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
 app = Flask(__name__)
 
-# ================= MongoDB Setup ================= #
-client_db = MongoClient(MONGO_URI)
-db = client_db["dxsimu"]
-sudo_collection = db["CODE-AI"]
-
-def get_sudo_users():
-    users = sudo_collection.find()
-    return [user["user_id"] for user in users]
-
-def add_sudo_user(user_id):
-    if not sudo_collection.find_one({"user_id": user_id}):
-        sudo_collection.insert_one({"user_id": user_id})
-
-def remove_sudo_user(user_id):
-    sudo_collection.delete_one({"user_id": user_id})
-
-# ================= Fancy Font System ================= #
-def fancy_text(text):
-    normal = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    fancy =  "ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ"
-    mapping = str.maketrans(normal, fancy)
-    return text.translate(mapping)
-
-# ================= SambaNova AI Setup ================= #
-ai_client = SambaNova(
-    api_key=SAMBA_API_KEY,
-    base_url="https://api.sambanova.ai/v1",
-)
-
-# [HYPER LOGIC] Strict System Prompt for Telegram HTML
-SYSTEM_PROMPT = """You are Dx-Simu, an advanced AI chatbot. 
-Your model name is "niko 1.0" and your developer is "DX-CODEX".
-
-CRITICAL HTML FORMATTING RULES FOR TELEGRAM:
-1. You MUST ONLY use these EXACT HTML tags: <b>, <i>, <u>, <s>, <code>, <pre>, <blockquote>.
-2. DO NOT USE <ul>, <ol>, <li>, <p>, <br>, <h1>, <h2>, etc. Use standard characters like "-" for bullets.
-3. For CODE blocks, you MUST use this format: <pre><code class="language-python">code here</code></pre>.
-4. For inline code or filenames, use <code>name</code>.
-5. For titles or important text, use <b>Title</b>.
-6. Absolutely NO markdown like **bold** or `code`. ONLY use the allowed HTML tags.
-Answer strictly in the requested language."""
-
-# ================= Keep Alive & Web Server ================= #
 @app.route('/')
 def home():
-    return "Dx-Simu Bot is Running perfectly!"
+    return "Bot is running on Render!"
+
+def run_server():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host="0.0.0.0", port=port)
 
 def keep_alive():
-    B = "INFO" 
     port = int(os.environ.get('PORT', 8080))
     URL = os.environ.get('RENDER_EXTERNAL_URL', f"http://localhost:{port}")
     while True:
+        time.sleep(10)
         try:
             requests.get(URL)
-            print(f"[{B}] Pinging server ({URL}) to stay awake...")
+            print(f"[PING] Pinging server ({URL}) to stay awake...")
         except Exception as e:
-            print(f"[{B}] Ping failed: {e}")
+            print(f"[PING] Ping failed: {e}")
         time.sleep(300)
 
-def run_flask():
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+BOT_TOKEN = "8773837287:AAFZDqWyq1kac9tSAGehIDxSSDzLECU0fHg"
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
 
-# ================= Authorization Check ================= #
-def is_authorized(user_id):
-    if user_id in OWNER_IDS:
-        return True
-    if user_id in get_sudo_users():
-        return True
-    return False
+MONGO_URI = "mongodb+srv://dxsimu:mnbvcxzdx@dxsimu.0qrxmsr.mongodb.net/?appName=dxsimu"
+client = MongoClient(MONGO_URI)
+db = client["DARK-NAMEX"]
+sudo_db = db["sudo_users"]
 
-# ================= Bot Commands ================= #
+OWNER_ID = [6703335929, 5136260272, 6737589257, 7819700191]
+SPECIAL_OWNERS = [6703335929, 5136260272]
+
+USER_MODES = {6703335929: 1, 5136260272: 1}
+
+CHAR_MAP = {
+    'a': 'ａ', 'b': 'ｂ', 'c': 'ｃ', 'd': 'ｄ', 'e': 'ｅ', 'f': 'ｆ', 'g': 'ｇ', 'h': 'ｈ', 'i': 'ｉ', 
+    'j': 'ｊ', 'k': 'ｋ', 'l': 'ｌ', 'm': 'ｍ', 'n': 'ｎ', 'o': 'ｏ', 'p': 'ｐ', 'q': 'ｑ', 'r': 'ｒ', 
+    's': 'ｓ', 't': 'ｔ', 'u': 'ｕ', 'v': 'ｖ', 'w': 'ｗ', 'x': 'ｘ', 'y': 'ｙ', 'z': 'ｚ',
+    'A': 'Ａ', 'B': 'Ｂ', 'C': 'Ｃ', 'D': 'Ｄ', 'E': 'Ｅ', 'F': 'Ｆ', 'G': 'Ｇ', 'H': 'Ｈ', 'I': 'Ｉ', 
+    'J': 'Ｊ', 'K': 'Ｋ', 'L': 'Ｌ', 'M': 'Ｍ', 'N': 'Ｎ', 'O': 'Ｏ', 'P': 'Ｐ', 'Q': 'Ｑ', 'R': 'Ｒ', 
+    'S': 'Ｓ', 'T': 'Ｔ', 'U': 'Ｕ', 'V': 'Ｖ', 'W': 'Ｗ', 'X': 'Ｘ', 'Y': 'Ｙ', 'Z': 'Ｚ',
+    '0': '０', '1': '１', '2': '２', '3': '３', '4': '４', '5': '５', '6': '６', '7': '৭', '8': '৮', '9': '৯',
+    '-': '－', '&': '＆', '=': '＝', '/': '／', '$': '＄', '%': '％', '?': '？', ',': '，', ';': '；', 
+    ':': '：', '"': '＂', "'": '＇', '!': '！', '@': '＠', '#': '＃', '.': '．', ' ': '－'
+}
+
+FONT_MAP = {
+    'a':'ᴀ','b':'ʙ','c':'ᴄ','d':'ᴅ','e':'ᴇ','f':'ғ','g':'ɢ','h':'ʜ','i':'ɪ','j':'ᴊ','k':'ᴋ','l':'ʟ','m':'ᴍ',
+    'n':'ɴ','o':'ᴏ','p':'ᴘ','q':'ǫ','r':'ʀ','s':'s','t':'ᴛ','u':'ᴜ','v':'ᴠ','w':'ᴡ','x':'x','y':'ʏ','z':'ᴢ',
+    'A':'ᴀ','B':'ʙ','C':'ᴄ','D':'ᴅ','E':'ᴇ','F':'ғ','G':'ɢ','H':'ʜ','I':'ɪ','J':'ᴊ','K':'ᴋ','L':'ʟ','M':'ᴍ',
+    'N':'ɴ','O':'ᴏ','P':'ᴘ','Q':'ǫ','R':'ʀ','S':'s','T':'ᴛ','U':'ᴜ','V':'ᴠ','W':'ᴡ','X':'x','Y':'ʏ','Z':'ᴢ'
+}
+
+BORDERS = {
+    'short': [
+        "┏━━━━━━━━━━━━━━━┓\n┣ \n┗━━━━━━━━━━━━━━━┛",
+        "╭─── •✧✧• ───╮\n│ \n╰─── •✧✧• ───╯",
+        "╔════ ≪ °❈° ≫ ════╗\n║ \n╚════ ≪ °❈° ≫ ════╝",
+        "┌──❀*̥˚─────❀*̥˚─┐\n│ \n└───────❀*̥˚───┘",
+        "╭─✰───────────╮\n│ \n╰───────────✰─╯",
+        "┏━✦ ━━━━━━━━━ ✦━┓\n┣ \n┗━✦ ━━━━━━━━━ ✦━┛",
+        "╒═══════✰°\n│ \n°✰═══════╛",
+        "╭┈─────── ೄྀ࿐ ˊˎ-\n╰┈➤ \n╰─────────────➤",
+        "┏━°⌜ 赤 ⌟°━┓\n┣ \n┗━°⌜ 赤 ⌟°━┛",
+        "┌─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┐\n│ \n└─── ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ───┘",
+        "┏━「  」\n┣ \n┗━╼"
+    ],
+    'dashboard': [
+        "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┃ ✅ \n┃ ┗───────────╼\n┃ ┏─「 ʜᴏᴡ ᴛᴏ ᴏᴘᴇʀᴀᴛᴇ 」\n┃ ┃ 1️⃣ \n┃ ┃ 2️⃣ \n┃ ┃ 3️⃣ \n┃ ┃ 4️⃣ \n┃ ┗───────────╼\n┃ ┏─「 sʏsᴛᴇᴍ ɪɴғᴏ 」\n┃ ┃ 👨‍💻 ᴅᴇᴠᴇʟᴏᴘᴇʀ: Ｄｘ－Ｓｉｍｕ\n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
+        "┏━━「 ᴅᴀsʜʙᴏᴀʀᴅ 」━━┓\n┃ ┏─「 ᴜsᴇʀ ᴘʀᴏғɪʟᴇ 」\n┃ ┃ 👤 ɴᴀᴍᴇ: \n┃ ┃ 🆔 ɪᴅ: \n┃ ┗───────────╼\n┃ \n┃ ┏─「 ʙᴏᴛ ғᴇᴀᴛᴜʀᴇs 」\n┃ ┃ 🗑 \n┃ ┃ 📌 \n┃ ┃ 🔊 \n┃ ┃ 🚀 \n┃ ┗───────────╼\n┗━━━━━━━━━━┛",
+        "╭─── ⋆⋅☆⋅⋆ ───╮\n│ 👤 ᴜsᴇʀ: \n│ 🆔 ɪᴅ: \n│ 🛡️ ʀᴏʟᴇ: \n╰─── ⋆⋅☆⋅⋆ ───╯",
+        "┏━✦ ᴘʀᴏғɪʟᴇ ✦━┓\n┣ ɴᴀᴍᴇ: \n┣ ᴀɢᴇ: \n┗━✦ ━━━━━━ ✦━┛",
+        "╔═════ ≪ ᴘᴀɴᴇʟ ≫ ═════╗\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟷\n║ ➣ ᴏᴘᴛɪᴏɴ 𝟸\n╚══════════════════╝"
+    ],
+    'music': [
+        "┏━♬ ɴᴏᴡ ᴘʟᴀʏɪɴɢ ♬━┓\n┣ 🎵 ᴛʀᴀᴄᴋ: \n┣ 🎤 ᴀʀᴛɪsᴛ: \n┣ ⏳ 0:00 ───|────── 3:14\n┣ ↻ ◁ II ▷ ↺\n┗━━━━━━━━━━━━━━━┛",
+        "╭─── 🎧 sᴏɴɢ ɪɴғᴏ ───╮\n│ 💿 ᴀʟʙᴜᴍ: \n│ 🎶 ɢᴇɴʀᴇ: \n╰──────────────────╯",
+        "╔═════ ≪ ᴍᴜsɪᴄ ≫ ═════╗\n║ 🔊 ᴠᴏʟᴜᴍᴇ: ▮▮▮▮▮▯▯\n║ ▶ ᴘʟᴀʏɪɴɢ: \n╚══════════════════╝"
+    ],
+    'warning': [
+        "┏━⚠️ ᴡᴀʀɴɪɴɢ ⚠️━┓\n┣ 🚫 ᴇʀʀᴏʀ: \n┣ 🛑 sᴛᴀᴛᴜs: \n┗━━━━━━━━━━━━━━┛",
+        "╭─── ☠️ ᴀʟᴇʀᴛ ☠️ ───╮\n│ ⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ\n╰─────────────────╯",
+        "╔════ ≪ ᴄʀɪᴛɪᴄᴀʟ ≫ ════╗\n║ ❌ ғᴀɪʟᴇᴅ ᴛᴏ ʟᴏᴀᴅ\n╚══════════════════╝"
+    ],
+    'info': [
+        "┏━━「 ✅ ᴄʟᴀɪᴍᴇᴅ 」━━┓\n┃ 👤 ᴜsᴇʀ: \n┃ 💰 ʀᴇᴡᴀʀᴅ: +1 ᴄᴏɪɴ\n┗━━━━━━━━━━━━━━┛",
+        "┏━━「 sᴛᴀᴛs 」━━┓\n┃ 📊 sʏsᴛᴇᴍ sᴛᴀᴛɪsᴛɪᴄs\n┗───────────╼\n┃ 👥 ᴛᴏᴛᴀʟ ᴜsᴇʀs: \n┃ 🔗 ᴀᴄᴛɪᴠᴇ ʟɪɴks: \n┃ 🚫 ʙᴀɴɴᴇᴅ ᴜsᴇʀs: \n┗━━━━━━━━━━┛",
+        "╭─ ✧ sʏsᴛᴇᴍ ɪɴғᴏ ✧ ─╮\n│ 💻 ᴄᴘᴜ: \n│ 💾 ʀᴀᴍ: \n│ ⏱️ ᴜᴘᴛɪᴍᴇ: \n╰──────────────────╯",
+        "┌──< sᴇᴛᴛɪɴɢs >──┐\n│ ⚙️ ᴍᴏᴅᴇ: \n│ 🔔 ᴀʟᴇʀᴛs: \n└────────────┘",
+        "╭━━━━〔 ɪɴᴅᴇx 〕━━━━╮\n┃ 📑 ᴘᴀɢᴇ: \n┃ 📌 sᴛᴀᴛᴜs: \n╰━━━━━━━━━━━━━━━╯"
+    ]
+}
+
+def get_sudo_list():
+    return list(sudo_db.find())
+
+def is_owner(uid):
+    return uid in OWNER_ID
+
+def is_authorized(uid):
+    return is_owner(uid) or sudo_db.find_one({"_id": uid}) is not None
+
+def sync_user(user):
+    if is_authorized(user.id) and not is_owner(user.id):
+        full_name = f"{user.first_name} {user.last_name or ''}".strip()
+        sudo_db.update_one({"_id": user.id}, {"$set": {"name": full_name}}, upsert=True)
 
 @bot.message_handler(commands=['start'])
-def start_cmd(message: Message):
-    if not is_authorized(message.from_user.id):
-        bot.reply_to(message, fancy_text("ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴀᴜᴛʜᴏʀɪᴢᴇᴅ ᴛᴏ ᴜsᴇ ᴛʜɪs ʙᴏᴛ. ᴄᴏɴᴛᴀᴄᴛ ᴏᴡɴᴇʀ."))
-        return
-    text = fancy_text("ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴅx-sɪᴍᴜ (ɴɪᴋᴏ 1.0)!\n\nɪ ᴀᴍ ʀᴇᴀᴅʏ ᴛᴏ ᴀssɪsᴛ ʏᴏᴜ. sᴇɴᴅ ᴍᴇ ᴀɴʏ ᴍᴇssᴀɢᴇ ᴏʀ ᴄᴏᴅᴇ ᴘʀᴏᴍᴘᴛ.")
-    bot.reply_to(message, text)
+def welcome_dashboard(message):
+    sync_user(message.from_user)
+    uid = message.from_user.id
+    if not is_authorized(uid): return
+
+    codex = '<a href="https://t.me/Dxcodexbot">Ｄｘ－Ｓｉｍｕ</a>'  
+    role = "👑 ᴏᴡɴᴇʀ" if is_owner(uid) else "⚡ ꜱᴜᴅᴏ"
+    
+    msg = (
+        f"<b>┏━「 ᴅᴀsʜʙᴏᴀʀᴅ 」\n"
+        f"┣ 👤 ɴᴀᴍᴇ: {message.from_user.first_name}\n"
+        f"┣ 🆔 ɪᴅ: <code>{message.from_user.id}</code>\n"
+        f"┣ 🛡️ ʀᴏʟᴇ: {role}\n"
+        f"┗━➾ 👨‍💻 ᴅᴇᴠ: {codex}</b>"
+    )
+    
+    markup = None
+    if uid in SPECIAL_OWNERS:
+        markup = InlineKeyboardMarkup()
+        markup.row(InlineKeyboardButton("✨ ᴍᴏᴅᴇ 𝟷 (ᴏʀɪɢɪɴᴀʟ)", callback_data="set_mode_1"))
+        markup.row(InlineKeyboardButton("🔠 ᴍᴏᴅᴇ 𝟸 (sᴍᴀʟʟ ᴄᴀᴘs)", callback_data="set_mode_2"))
+    
+    bot.reply_to(message, msg, disable_web_page_preview=True, reply_markup=markup)
 
 @bot.message_handler(commands=['sudo'])
-def sudo_manager(message: Message):
-    if message.from_user.id not in OWNER_IDS:
-        bot.reply_to(message, fancy_text("ᴏɴʟʏ ᴛʜᴇ sᴜᴘʀᴇᴍᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!"))
-        return
+def handle_sudo(message):
+    uid = message.from_user.id
+    if not is_authorized(uid): return
+    
+    args = message.text.split()
+    
+    if len(args) == 1:
+        bot.send_chat_action(message.chat.id, 'typing')
+        sudo_users = get_sudo_list()
+        if not sudo_users:
+            return bot.reply_to(message, "<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n┗ ➾ 🚫 ɴᴏ ꜱᴜᴅᴏ ᴜꜱᴇʀꜱ.</b>")
+        
+        id_list = ""
+        for user in sudo_users:
+            s_id = user["_id"]
+            s_name = user.get("name", "ᴜɴᴋɴᴏᴡɴ (ɴᴏᴛ sᴛᴀʀᴛᴇᴅ)")
+            mention = f"<a href='tg://user?id={s_id}'>{s_name}</a>"
+            id_list += f"┣ 🆔 <code>{s_id}</code>\n┃ ┗ 👤 {mention}\n"
+            
+        msg = f"<b>┏━「 ꜱᴜᴅᴏ ʟɪꜱᴛ 」\n{id_list}┗━➾ ᴛᴏᴛᴀʟ: {len(sudo_users)}</b>"
+        return bot.reply_to(message, msg, disable_web_page_preview=True)
 
-    parts = message.text.split()
-    if len(parts) == 1:
-        users = get_sudo_users()
-        if not users:
-            bot.reply_to(message, fancy_text("sᴜᴅᴏ ʟɪsᴛ ɪs ᴇᴍᴘᴛʏ."))
+    if is_owner(uid):
+        new_id = args[1]
+        if new_id.isdigit():
+            new_id = int(new_id)
+            if new_id in OWNER_ID or sudo_db.find_one({"_id": new_id}):
+                return bot.reply_to(message, "⚠️ <b>ᴀʟʀᴇᴀᴅʏ ɪɴ ʟɪꜱᴛ.</b>")
+            
+            try:
+                u_info = bot.get_chat(new_id)
+                u_name = f"{u_info.first_name} {u_info.last_name or ''}".strip()
+            except:
+                u_name = "Not Started Yet"
+                
+            sudo_db.insert_one({"_id": new_id, "name": u_name})
+            bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ᴀᴅᴅᴇᴅ 」\n┗ ➾ ✅ ɪᴅ: <code>{new_id}</code></b>")
         else:
-            msg = fancy_text("ᴄᴜʀʀᴇɴᴛ sᴜᴅᴏ ᴜsᴇʀs:\n") + "\n".join([f"<code>{u}</code>" for u in users])
-            bot.reply_to(message, msg)
-    else:
-        try:
-            new_id = int(parts[1])
-            add_sudo_user(new_id)
-            bot.reply_to(message, fancy_text(f"sᴜᴄᴄᴇssғᴜʟʟʏ ᴀᴅᴅᴇᴅ {new_id} ᴛᴏ sᴜᴅᴏ ʟɪsᴛ!"))
-        except ValueError:
-            bot.reply_to(message, fancy_text("ɪɴᴠᴀʟɪᴅ ɪᴅ ғᴏʀᴍᴀᴛ."))
+            bot.reply_to(message, "❌ <b>ᴠᴀʟɪᴅ ɪᴅ ᴘʟᴇᴀsᴇ.</b>")
 
 @bot.message_handler(commands=['rm'])
-def rm_sudo(message: Message):
-    if message.from_user.id not in OWNER_IDS:
-        bot.reply_to(message, fancy_text("ᴏɴʟʏ ᴛʜᴇ sᴜᴘʀᴇᴍᴇ ᴏᴡɴᴇʀ ᴄᴀɴ ᴜsᴇ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ!"))
-        return
+def handle_remove(message):
+    if not is_owner(message.from_user.id): return
     
-    parts = message.text.split()
-    if len(parts) > 1:
-        try:
-            rm_id = int(parts[1])
-            remove_sudo_user(rm_id)
-            bot.reply_to(message, fancy_text(f"sᴜᴄᴄᴇssғᴜʟʟʏ ʀᴇᴍᴏᴠᴇᴅ {rm_id} ғʀᴏᴍ sᴜᴅᴏ ʟɪsᴛ!"))
-        except ValueError:
-            bot.reply_to(message, fancy_text("ɪɴᴠᴀʟɪᴅ ɪᴅ ғᴏʀᴍᴀᴛ."))
+    args = message.text.split()
+    if len(args) > 1 and args[1].isdigit():
+        target_id = int(args[1])
+        if sudo_db.find_one({"_id": target_id}):
+            sudo_db.delete_one({"_id": target_id})
+            bot.reply_to(message, f"<b>┏━「 ꜱᴜᴅᴏ ʀᴇᴍᴏᴠᴇᴅ 」\n┗ ➾ 🗑️ ɪᴅ: <code>{target_id}</code></b>")
+        else:
+            bot.reply_to(message, "⚠️ <b>ɴᴏᴛ ꜰᴏᴜɴᴅ.</b>")
+
+@bot.message_handler(commands=['border'])
+def border_handler(message):
+    uid = message.from_user.id
+    if uid not in SPECIAL_OWNERS: return
+    
+    args = message.text.split()
+    if len(args) == 1:
+        send_border_page(message.chat.id, "short", 0)
     else:
-        bot.reply_to(message, fancy_text("ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀɴ ɪᴅ ᴛᴏ ʀᴇᴍᴏᴠᴇ. ᴇxᴀᴍᴘʟᴇ: /ʀᴍ 12345678"))
+        category = args[1].lower()
+        if category == "list":
+            cats = list(BORDERS.keys())
+            cat_text = "<b>┏━「 ʙᴏʀᴅᴇʀ ᴄᴀᴛᴇɢᴏʀɪᴇs 」</b>\n"
+            for c in cats:
+                cat_text += f"┣ ✧ <code>/border {c}</code>\n"
+            cat_text += "<b>┗━╼</b>"
+            bot.reply_to(message, cat_text, parse_mode='HTML')
+        elif category in BORDERS:
+            send_border_page(message.chat.id, category, 0)
+        else:
+            bot.reply_to(message, "⚠️ <b>ᴄᴀᴛᴇɢᴏʀʏ ɴᴏᴛ ғᴏᴜɴᴅ. ᴜsᴇ /border list</b>", parse_mode='HTML')
 
-# ================= Chat Handler ================= #
-@bot.message_handler(func=lambda message: True)
-def ai_chat(message: Message):
-    if not is_authorized(message.from_user.id):
-        return
+def send_border_page(chat_id, category, page_idx, message_id=None):
+    items = BORDERS.get(category)
+    if not items: return
     
-    loading_text = fancy_text("⏳ ᴘ ʀ ᴏ ᴄ ᴇ s s ɪ ɴ ɢ   ʏ ᴏ ᴜ ʀ   ʀ ᴇ ǫ ᴜ ᴇ s ᴛ . . .")
-    sent_msg = bot.reply_to(message, f"<b>{loading_text}</b>")
+    total = len(items)
+    page_idx = page_idx % total
     
-    try:
-        response = ai_client.chat.completions.create(
-            model="ALLaM-7B-Instruct-preview",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": message.text}
-            ],
-            temperature=0.3,
-            top_p=0.9
-        )
-        
-        reply_text = response.choices[0].message.content
-        
-        # [HYPER LOGIC] Fail-safe editing to handle Telegram formatting issues
-        try:
-            bot.edit_message_text(
-                chat_id=message.chat.id,
-                message_id=sent_msg.message_id,
-                text=reply_text,
-                parse_mode='HTML'
-            )
-        except telebot.apihelper.ApiTelegramException as e:
-            if 'parse entities' in str(e):
-                # AI gave invalid HTML. Let's escape it and send it safely inside a <pre> tag!
-                safe_text = html.escape(reply_text)
-                bot.edit_message_text(
-                    chat_id=message.chat.id,
-                    message_id=sent_msg.message_id,
-                    text=f"<b>[Formatting Fixed]</b>\n<pre>{safe_text}</pre>",
-                    parse_mode='HTML'
-                )
-            else:
-                raise e # Throw other Telegram errors to the main exception block
-            
-    except Exception as e:
-        error_msg = fancy_text("ᴀɴ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ ᴡʜɪʟᴇ ɢᴇɴᴇʀᴀᴛɪɴɢ ʀᴇsᴘᴏɴsᴇ.")
-        # Catch tokenization or API errors nicely
-        bot.edit_message_text(
-            chat_id=message.chat.id,
-            message_id=sent_msg.message_id,
-            text=f"<b>{error_msg}</b>\n\n<pre>Error Details:\n{html.escape(str(e))}</pre>",
-            parse_mode='HTML'
-        )
+    border_text = f"<b>┏━「 {category.upper()} ʙᴏʀᴅᴇʀ ({page_idx+1}/{total}) 」</b>\n<code>{items[page_idx]}</code>"
+    
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("⬅️ ᴘᴇᴠ", callback_data=f"bdr_{category}_{page_idx-1}"),
+        InlineKeyboardButton("📋 ᴄᴏᴘʏ", callback_data="copy_hint"),
+        InlineKeyboardButton("ɴᴇxᴛ ➡️", callback_data=f"bdr_{category}_{page_idx+1}")
+    )
+    
+    if message_id:
+        bot.edit_message_text(border_text, chat_id, message_id, reply_markup=markup, parse_mode='HTML')
+    else:
+        bot.send_message(chat_id, border_text, reply_markup=markup, parse_mode='HTML')
 
-# ================= Main Execution ================= #
+@bot.message_handler(func=lambda message: not message.text.startswith('/'))
+def process_style(message):
+    uid = message.from_user.id
+    if not is_authorized(uid): return
+    sync_user(message.from_user)
+    bot.send_chat_action(message.chat.id, 'typing')
+    
+    mode = USER_MODES.get(uid, 1)
+    
+    if uid in SPECIAL_OWNERS and mode == 2:
+        styled_text = "".join([FONT_MAP.get(c, c) for c in message.text])
+        
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_hint"))
+        
+        msg = f"<code>{styled_text}</code>"
+        bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode='HTML')
+        
+    else:
+        clean_text = re.sub(r'[_.]', ' ', message.text).strip()
+        words = re.split(r'[- ]+', clean_text)
+        normalized = "-".join([w.capitalize() for w in words if w])
+        styled_base = "".join([CHAR_MAP.get(c, c) for c in normalized])
+        
+        style1 = f"「𖣂」{styled_base}ايڪـͬــͤــᷜــͨــͣــͪـي"
+        style2 = styled_base
+        
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📝 ᴄᴏᴘʏ", callback_data="copy_hint"))
+        
+        msg1 = f"<b>┏━「 sᴛʏʟᴇ 𝟷 」</b>\n┣ <code>{style1}</code>\n<b>┗━╼</b>"
+        bot.send_message(message.chat.id, msg1, reply_markup=markup)
+        
+        msg2 = f"<b>┏━「 sᴛʏʟᴇ 𝟸 」</b>\n┣ <code>{style2}</code>\n<b>┗━╼</b>"
+        bot.send_message(message.chat.id, msg2, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    uid = call.from_user.id
+    data = call.data
+    
+    if data == "copy_hint":
+        bot.answer_callback_query(call.id, "👆 ᴛᴇxᴛ-ᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴜɴ ᴄᴏᴘʏ ʜᴏʏᴇ ᴊᴀʙᴇ!", show_alert=True)
+        
+    elif data.startswith("set_mode_"):
+        if uid not in SPECIAL_OWNERS:
+            return bot.answer_callback_query(call.id, "❌ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ!", show_alert=True)
+        mode = int(data.split("_")[2])
+        USER_MODES[uid] = mode
+        bot.answer_callback_query(call.id, f"✅ sᴛʏʟᴇ ᴍᴏᴅᴇ {mode} ᴀᴄᴛɪᴠᴀᴛᴇᴅ!", show_alert=True)
+        
+    elif data.startswith("bdr_"):
+        if uid not in SPECIAL_OWNERS: return
+        _, category, page = data.split("_")
+        send_border_page(call.message.chat.id, category, int(page), call.message.message_id)
+
 if __name__ == "__main__":
-    threading.Thread(target=run_flask, daemon=True).start()
+    threading.Thread(target=run_server, daemon=True).start()
     threading.Thread(target=keep_alive, daemon=True).start()
     
-    print(fancy_text("[ ɪɴғᴏ ] ᴅx-sɪᴍᴜ ʙᴏᴛ ɪs sᴛᴀʀᴛɪɴɢ..."))
-    bot.infinity_polling(skip_pending=True)
+    print(">> NIKO is Online. System Secured by DX-CODEX.")
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=20)
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(5)
